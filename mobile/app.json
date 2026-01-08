@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "IES",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "package": "com.pratyakshamajalikar.mobile"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +32,12 @@
     "plugins": [
       "expo-router",
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a74ff216-723b-4674-af45-da25b352dc06"
+      }
+    }
   }
 }
