@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native';
-import { Text, Card, Button, Avatar, IconButton, SegmentedButtons, Portal, Modal, TextInput, Divider, ActivityIndicator } from 'react-native-paper';
+import { Text, Card, Button, Avatar, IconButton, SegmentedButtons, Portal, Modal, TextInput, Divider, ActivityIndicator, Surface, Chip } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { staffService } from '../../services/api';
 import { Outpass } from '../../types';
 import { StaffOutpassCard } from '../../components/StaffOutpassCard';
-import * as ImagePicker from 'expo-image-picker';
+
+import { theme, SPACING, SCHOOL_NAME } from '../../constants/theme';
 
 export default function StaffDashboard() {
     const router = useRouter();
-    const { role, logout } = useAuthStore();
+    const { role, user } = useAuthStore();
     const [refreshing, setRefreshing] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -140,17 +141,7 @@ export default function StaffDashboard() {
             }
             if (action === 'return') await staffService.markAsReturned(id);
             if (action === 'warden-left') {
-                const result = await ImagePicker.launchCameraAsync({
-                    allowsEditing: true,
-                    aspect: [4, 3],
-                    quality: 0.5,
-                });
-
-                if (!result.canceled) {
-                    await staffService.wardenMarkLeft(id, result.assets[0].uri);
-                } else {
-                    return; // Don't proceed if camera canceled
-                }
+                await staffService.wardenMarkLeft(id);
             }
             if (action === 'reject' && role === 'WARDEN') {
                 if (!reason) return Alert.alert("Error", "Reason is required");
@@ -186,49 +177,58 @@ export default function StaffDashboard() {
         setMeetingVisible(true);
     };
 
-    const renderAccountantContent = () => (
-        <View style={{ flex: 1 }}>
-            <View style={styles.welcomeHeader}>
-                <Text variant="headlineSmall">Hello, Accountant</Text>
-                <Text variant="bodyMedium" style={{ color: 'gray' }}>Pending Fee Actions</Text>
-            </View>
-            {loading && !refreshing ? (
-                <ActivityIndicator style={{ marginTop: 20 }} />
-            ) : (
-                <View style={styles.listContainer}>
-                    {requests.length === 0 ? (
-                        <Text style={styles.emptyText}>No pending requests</Text>
-                    ) : (
-                        requests.map(op => (
-                            <StaffOutpassCard
-                                key={op.id}
-                                outpass={op}
-                                role={role || ''}
-                                onFeeDue={(id) => { setSelectedId(id); setFeeVisible(true); }}
-                                onApprove={(id) => handleAction('approve', id)}
-                                onViewDetail={(item) => { setSelectedOutpass(item); setDetailVisible(true); }}
-                            />
-                        ))
-                    )}
+    const renderAccountantContent = () => {
+        // Calculate total pending fee (mock logic or real if data available)
+        const pendingCount = requests.filter(r => !r.fee_paid).length;
+        const totalFeeDue = requests.reduce((sum, r) => sum + (r.fee_due || 0), 0);
+
+        return (
+            <View style={{ flex: 1 }}>
+                <View style={styles.sectionHeader}>
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold', color: '#616161' }}>Student Requests</Text>
                 </View>
-            )}
-        </View>
-    );
+
+                {loading && !refreshing ? (
+                    <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.primary} />
+                ) : (
+                    <View style={styles.listContainer}>
+                        {requests.length === 0 ? (
+                            <View style={styles.emptyState}>
+                                <Avatar.Icon size={64} icon="check-all" style={{ backgroundColor: '#E0F2F1' }} color="#00695C" />
+                                <Text style={{ marginTop: 16, color: 'gray' }}>No pending fee approvals.</Text>
+                            </View>
+                        ) : (
+                            requests.map(op => (
+                                <StaffOutpassCard
+                                    key={op.id}
+                                    outpass={op}
+                                    role={role || ''}
+                                    onFeeDue={(id) => { setSelectedId(id); setFeeVisible(true); }}
+                                    onApprove={(id) => handleAction('approve', id)}
+                                    onViewDetail={(item) => { setSelectedOutpass(item); setDetailVisible(true); }}
+                                />
+                            ))
+                        )}
+                    </View>
+                )}
+            </View>
+        );
+    };
 
     const renderHMContent = () => (
         <View style={{ flex: 1 }}>
             <View style={styles.quickActions}>
                 <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(staff)/priority')}>
-                    <Avatar.Icon size={40} icon="fire" style={{ backgroundColor: '#FFCDD2' }} color="#D32F2F" />
-                    <Text variant="labelMedium">Priority</Text>
+                    <Avatar.Icon size={48} icon="fire" style={{ backgroundColor: '#FFEBEE' }} color={theme.colors.error} />
+                    <Text variant="labelMedium" style={{ marginTop: 4 }}>Priority</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(staff)/history')}>
-                    <Avatar.Icon size={40} icon="history" style={{ backgroundColor: '#C8E6C9' }} color="#388E3C" />
-                    <Text variant="labelMedium">History</Text>
+                    <Avatar.Icon size={48} icon="history" style={{ backgroundColor: '#E8F5E9' }} color="#2E7D32" />
+                    <Text variant="labelMedium" style={{ marginTop: 4 }}>History</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(staff)/analytics')}>
-                    <Avatar.Icon size={40} icon="chart-bar" style={{ backgroundColor: '#BBDEFB' }} color="#1976D2" />
-                    <Text variant="labelMedium">Analytics</Text>
+                    <Avatar.Icon size={48} icon="chart-bar" style={{ backgroundColor: '#E3F2FD' }} color="#1565C0" />
+                    <Text variant="labelMedium" style={{ marginTop: 4 }}>Analytics</Text>
                 </TouchableOpacity>
             </View>
 
@@ -236,27 +236,31 @@ export default function StaffDashboard() {
                 value={category}
                 onValueChange={setCategory}
                 style={styles.segmented}
+                theme={{ colors: { secondaryContainer: theme.colors.primaryContainer, onSecondaryContainer: theme.colors.onPrimaryContainer } }}
                 buttons={[
                     { value: 'pending', label: 'Pending' },
                     { value: 'approved', label: 'Approved' },
                     { value: 'meeting', label: 'Meeting' },
                     { value: 'returned', label: 'Returned' },
-                    { value: 'not_returned', label: 'Out / Late' },
+                    { value: 'not_returned', label: 'Out' },
                 ]}
             />
 
             {category === 'not_returned' && (
                 <Text variant="bodySmall" style={{ textAlign: 'center', color: 'gray', marginBottom: 10 }}>
-                    Students currently outside the campus. Mark as returned when they arrive.
+                    Students currently outside the campus.
                 </Text>
             )}
 
             {loading && !refreshing ? (
-                <ActivityIndicator style={{ marginTop: 20 }} />
+                <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.primary} />
             ) : (
                 <View style={styles.listContainer}>
                     {requests.length === 0 ? (
-                        <Text style={styles.emptyText}>No requests in this category</Text>
+                        <View style={styles.emptyState}>
+                            <Avatar.Icon size={64} icon="cancel" style={{ backgroundColor: '#FAFAFA' }} color="gray" />
+                            <Text style={{ marginTop: 16, color: 'gray' }}>No requests in this category.</Text>
+                        </View>
                     ) : (
                         requests.map(op => (
                             <StaffOutpassCard
@@ -280,12 +284,13 @@ export default function StaffDashboard() {
 
     const renderWardenContent = () => (
         <View style={{ flex: 1 }}>
-            <View style={styles.searchSection}>
+            <Surface style={styles.searchSection} elevation={1}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text variant="titleMedium">Today's Requests</Text>
+                    <Text variant="titleMedium" style={{ fontWeight: 'bold', color: theme.colors.primary }}>Today's Requests</Text>
                     <IconButton
                         icon={isSearchExpanded ? "chevron-up" : "magnify"}
                         onPress={() => setIsSearchExpanded(!isSearchExpanded)}
+                        iconColor={theme.colors.primary}
                     />
                 </View>
 
@@ -325,20 +330,21 @@ export default function StaffDashboard() {
                             dense
                             style={styles.smallInput}
                         />
-                        <Button mode="contained" onPress={fetchWardenDashboard} style={{ marginTop: 8 }}>Search</Button>
+                        <Button mode="contained" onPress={fetchWardenDashboard} style={{ marginTop: 8 }} buttonColor={theme.colors.primary}>Search</Button>
                     </View>
                 )}
-            </View>
+            </Surface>
 
             <SegmentedButtons
                 value={category}
                 onValueChange={setCategory}
                 style={styles.segmented}
+                theme={{ colors: { secondaryContainer: theme.colors.primaryContainer, onSecondaryContainer: theme.colors.onPrimaryContainer } }}
                 buttons={[
                     { value: 'pending', label: 'In Hostel' },
-                    { value: 'checked_out', label: 'Ready to Exit' },
+                    { value: 'checked_out', label: 'Ready' },
                     { value: 'outside', label: 'Outside' },
-                    { value: 'all', label: 'All Today' },
+                    { value: 'all', label: 'All' },
                 ]}
             />
 
@@ -350,11 +356,14 @@ export default function StaffDashboard() {
             </View>
 
             {loading && !refreshing ? (
-                <ActivityIndicator style={{ marginTop: 20 }} />
+                <ActivityIndicator style={{ marginTop: 20 }} color={theme.colors.primary} />
             ) : (
                 <View style={styles.listContainer}>
                     {requests.length === 0 ? (
-                        <Text style={styles.emptyText}>No outpasses found</Text>
+                        <View style={styles.emptyState}>
+                            <Avatar.Icon size={64} icon="bunk-bed-outline" style={{ backgroundColor: '#ECEFF1' }} color="#607D8B" />
+                            <Text style={{ marginTop: 16, color: 'gray' }}>No students found in this category.</Text>
+                        </View>
                     ) : (
                         requests.map(op => (
                             <StaffOutpassCard
@@ -375,20 +384,23 @@ export default function StaffDashboard() {
 
     const renderGateContent = () => (
         <View style={{ flex: 1, padding: 16 }}>
-            <Card style={styles.gateCard} onPress={() => router.push('/(staff)/validate')}>
-                <Card.Content style={styles.gateCardContent}>
-                    <Avatar.Icon size={80} icon="numeric" style={{ backgroundColor: '#6200ee' }} color="white" />
-                    <Text variant="headlineSmall" style={{ marginTop: 16, fontWeight: 'bold' }}>Verify Code</Text>
-                    <Text variant="bodyMedium" style={{ color: 'gray', textAlign: 'center' }}>
-                        Tap here to verify exit/return codes.
+            <Surface style={styles.gateCard} elevation={2} onTouchEnd={() => router.push('/(staff)/validate')}>
+                <View style={{ alignItems: 'center', padding: SPACING.l }}>
+                    <Avatar.Icon size={80} icon="qrcode-scan" style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.onPrimaryContainer} />
+                    <Text variant="headlineSmall" style={{ marginTop: 16, fontWeight: 'bold', color: theme.colors.primary }}>Verify Exit/Return</Text>
+                    <Text variant="bodyMedium" style={{ color: 'gray', textAlign: 'center', marginTop: 8 }}>
+                        Tap here to scan QR code or enter code manually.
                     </Text>
-                </Card.Content>
-            </Card>
+                </View>
+            </Surface>
 
             <View style={{ marginTop: 24 }}>
-                <Text variant="titleMedium" style={{ marginBottom: 12 }}>Recent Checkouts</Text>
+                <Text variant="titleMedium" style={{ marginBottom: 12, fontWeight: 'bold' }}>Recent Checkouts</Text>
                 {requests.length === 0 ? (
-                    <Text style={{ color: 'gray', textAlign: 'center', marginTop: 20 }}>No checkouts today</Text>
+                    <View style={styles.emptyState}>
+                        <Avatar.Icon size={64} icon="history" style={{ backgroundColor: '#F5F5F5' }} color="gray" />
+                        <Text style={{ marginTop: 16, color: 'gray' }}>No recent activity.</Text>
+                    </View>
                 ) : (
                     requests.map(op => (
                         <StaffOutpassCard
@@ -409,18 +421,21 @@ export default function StaffDashboard() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
             <Stack.Screen options={{
-                title: 'Staff Portal',
+                title: SCHOOL_NAME,
                 headerRight: () => (
                     <IconButton icon="account-circle" onPress={() => router.push('/(staff)/profile')} />
                 )
             }} />
 
-            {role !== 'ACCOUNTANT' && ( // Accountant has their own header
-                <View style={styles.welcomeHeader}>
-                    <Text variant="headlineSmall">Hello, Staff</Text>
-                    <Text variant="bodyMedium" style={{ color: 'gray' }}>{role} Role</Text>
-                </View>
-            )}
+
+            <Surface style={styles.roleBanner} elevation={0}>
+                <Text variant="headlineSmall" style={{ color: theme.colors.primary, fontWeight: 'bold' }}>
+                    Welcome, {user?.first_name || (role ? role.charAt(0).toUpperCase() + role.slice(1).toLowerCase() : 'Staff')}
+                </Text>
+                <Chip style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: theme.colors.secondaryContainer }}>
+                    <Text style={{ color: theme.colors.onSecondaryContainer, fontWeight: 'bold' }}>{role}</Text>
+                </Chip>
+            </Surface>
 
             {role === 'HM' ? renderHMContent() : (
                 role === 'WARDEN' ? renderWardenContent() : (
@@ -582,4 +597,26 @@ const styles = StyleSheet.create({
     smallInput: { fontSize: 14 },
     gateCard: { backgroundColor: 'white', elevation: 4, borderRadius: 16 },
     gateCardContent: { alignItems: 'center', paddingVertical: 40 },
+    statsContainer: {
+        backgroundColor: 'white',
+        padding: SPACING.m,
+        borderRadius: theme.roundness,
+        marginBottom: SPACING.m,
+    },
+    statItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    roleBanner: {
+        marginBottom: SPACING.m,
+        backgroundColor: 'transparent',
+    },
+    sectionHeader: {
+        marginBottom: SPACING.s,
+        marginTop: SPACING.s
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    }
 });

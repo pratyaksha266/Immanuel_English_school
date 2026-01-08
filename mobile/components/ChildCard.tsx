@@ -1,7 +1,8 @@
 import React from 'react';
-import { StyleSheet, View, Image } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Card, Text, Avatar, Chip, Button } from 'react-native-paper';
 import { Student } from '../types';
+import { theme, SPACING } from '../constants/theme';
 
 interface ChildCardProps {
     student: Student;
@@ -11,51 +12,51 @@ interface ChildCardProps {
 
 export const ChildCard: React.FC<ChildCardProps> = ({ student, onRequestOutpass, hasActiveOutpass }) => {
     return (
-        <Card style={styles.card} mode="elevated">
+        <Card style={styles.card} mode="elevated" elevation={1}>
             <Card.Content style={styles.content}>
                 <View style={styles.row}>
                     <Avatar.Text
                         size={50}
                         label={student.first_name[0]}
-                        style={{ backgroundColor: '#6200ee' }}
-                        color="white"
+                        style={{ backgroundColor: theme.colors.primaryContainer }}
+                        color={theme.colors.onPrimaryContainer}
                     />
                     <View style={styles.info}>
                         <Text variant="titleMedium" style={styles.name}>
                             {student.first_name} {student.last_name}
                         </Text>
-                        <Text variant="bodySmall">
-                            Class: {student.class_name || student.class_obj || 'N/A'} {student.section_name || student.section || ''}
-                        </Text>
-                        <Text variant="bodySmall">
-                            Roll No: {student.roll_number}
-                        </Text>
                         <Text variant="bodySmall" style={{ color: 'gray' }}>
-                            Adm No: {student.admission_number}
+                            Class: {student.class_name || student.class_obj || 'N/A'} {student.section_name || student.section || ''} | Roll No: {student.roll_number}
                         </Text>
                     </View>
                 </View>
 
-                {student.hostel ? (
-                    <Chip icon="home" style={styles.chip} compact>
+                {student.hostel && (
+                    <Chip icon="home" style={styles.chip} compact textStyle={{ fontSize: 12 }}>
                         {student.hostel_name || student.hostel} {student.room_number || student.room ? `(${student.room_number || student.room})` : ''}
                     </Chip>
-                ) : null}
+                )}
 
                 {hasActiveOutpass && (
-                    <Chip icon="alert-circle" style={[styles.chip, { backgroundColor: '#FFF9C4' }]} textStyle={{ color: '#FBC02D' }} compact>
+                    <Chip
+                        icon="alert-circle"
+                        style={[styles.chip, { backgroundColor: theme.colors.secondaryContainer }]}
+                        textStyle={{ color: theme.colors.onSecondaryContainer, fontSize: 12 }}
+                        compact
+                    >
                         Active Outpass Request
                     </Chip>
                 )}
             </Card.Content>
 
-            <Card.Actions>
+            <Card.Actions style={{ justifyContent: 'flex-end', paddingRight: 16, paddingBottom: 16 }}>
                 <Button
-                    mode="contained-tonal"
+                    mode={hasActiveOutpass ? "text" : "contained"}
                     onPress={() => onRequestOutpass(student)}
                     disabled={hasActiveOutpass}
+                    buttonColor={hasActiveOutpass ? undefined : theme.colors.primary}
                 >
-                    {hasActiveOutpass ? 'Request Active' : 'Request Outpass'}
+                    {hasActiveOutpass ? 'View Status' : 'Request Outpass'}
                 </Button>
             </Card.Actions>
         </Card>
@@ -64,27 +65,29 @@ export const ChildCard: React.FC<ChildCardProps> = ({ student, onRequestOutpass,
 
 const styles = StyleSheet.create({
     card: {
-        marginBottom: 16,
-        marginHorizontal: 4,
+        marginBottom: SPACING.m,
         backgroundColor: 'white',
+        borderRadius: theme.roundness,
     },
     content: {
-        paddingVertical: 10,
+        paddingVertical: SPACING.s,
     },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: SPACING.s,
     },
     info: {
-        marginLeft: 16,
+        marginLeft: SPACING.m,
         flex: 1,
     },
     name: {
         fontWeight: 'bold',
+        color: '#424242',
     },
     chip: {
-        marginTop: 8,
+        marginTop: SPACING.xs,
         alignSelf: 'flex-start',
+        marginRight: SPACING.xs,
     },
 });

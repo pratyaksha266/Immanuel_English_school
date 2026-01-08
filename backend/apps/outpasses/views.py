@@ -8,6 +8,7 @@ from .serializers import (
     FeePendingSerializer, MeetingSerializer, VacateSerializer
 )
 from apps.users.models import User
+from apps.notifications.utils import send_sms
 import uuid
 import datetime
 
@@ -209,6 +210,13 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 'comments': reason
             }
         )
+        
+        # Notify Parent
+        student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+        parent_phone = outpass.parent.phone
+        msg = f"Immanuel English School: The outpass request for {student_name} has been REJECTED by HM. Reason: {reason}"
+        send_sms(parent_phone, msg)
+        
         return Response({'status': 'rejected by HM'})
 
     @action(detail=True, methods=['post'], url_path='accountant/approve')
@@ -265,6 +273,13 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 'status': Approval.Status.APPROVED
             }
         )
+        
+        # Notify Parent
+        student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+        parent_phone = outpass.parent.phone
+        msg = f"Immanuel English School: The outpass for {student_name} is APPROVED. You will receive an exit code once the Warden clears the departure."
+        send_sms(parent_phone, msg)
+        
         return Response({'status': 'approved by HM'})
 
     @action(detail=True, methods=['post'], url_path='hm/meeting')
@@ -281,6 +296,13 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
             outpass.meeting_notes = serializer.validated_data.get('reason', '')
             outpass.status = Outpass.Status.MEETING
             outpass.save()
+            
+            # Notify Parent
+            student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+            parent_phone = outpass.parent.phone
+            msg = f"Immanuel English School: Meeting scheduled for {student_name}. Date: {outpass.meeting_date}, Venue: {outpass.meeting_venue}."
+            send_sms(parent_phone, msg)
+            
             return Response({'status': 'meeting scheduled'})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -382,6 +404,11 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
         
         outpass = self.get_object()
+        
+        # If already vacated, just return success with the exit code (idempotency)
+        if outpass.status == Outpass.Status.READY_FOR_EXIT:
+            return Response({'status': 'already vacated', 'exit_code': outpass.exit_code})
+
         if outpass.status != Outpass.Status.APPROVED:
             return Response({'error': 'Outpass must be APPROVED by HM first'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -404,6 +431,13 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
                 'status': Approval.Status.APPROVED
             }
         )
+        
+        # Notify Parent with Exit Code
+        student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+        parent_phone = outpass.parent.phone
+        msg = f"Immanuel English School: {student_name} is cleared to leave. Exit Code: {outpass.exit_code}. Please show this at the gate."
+        send_sms(parent_phone, msg)
+        
         return Response({'status': 'vacated and exit code generated', 'exit_code': outpass.exit_code})
 
     @action(detail=False, methods=['post'], url_path='gate/process-code')

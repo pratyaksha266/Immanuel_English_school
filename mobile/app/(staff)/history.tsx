@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View, Alert, RefreshControl } from 'react-native';
-import { Text, ActivityIndicator, Searchbar, IconButton, Menu, Divider, Button, Portal, Modal, Chip, TextInput } from 'react-native-paper';
+import { Text, ActivityIndicator, Searchbar, IconButton, Menu, Divider, Button, Portal, Modal, Chip, TextInput, Surface } from 'react-native-paper';
 import { Stack } from 'expo-router';
 import { staffService } from '../../services/api';
 import { Outpass } from '../../types';
 import { StaffOutpassCard } from '../../components/StaffOutpassCard';
+import { theme } from '../../constants/theme';
 
 export default function HistoryScreen() {
     const [requests, setRequests] = useState<Outpass[]>([]);
@@ -115,7 +116,7 @@ export default function HistoryScreen() {
             </View>
 
             {/* Filter Inputs (Expandable) */}
-            <View style={styles.filterInputs}>
+            <Surface style={styles.filterSection} elevation={1}>
                 <View style={styles.row}>
                     <TextInput
                         label="From Date (YYYY-MM-DD)"
@@ -152,8 +153,8 @@ export default function HistoryScreen() {
                         style={styles.dateInput}
                     />
                 </View>
-                <Button mode="contained-tonal" style={{ marginVertical: 4 }} onPress={() => fetchHistory()}>Apply Date/Time Filter</Button>
-            </View>
+                <Button mode="contained" buttonColor={theme.colors.primary} style={{ marginTop: 8 }} onPress={() => fetchHistory()}>Apply Filters</Button>
+            </Surface>
 
             {loading && !refreshing ? (
                 <View style={styles.center}><ActivityIndicator /></View>
@@ -241,7 +242,7 @@ const styles = StyleSheet.create({
     modal: { backgroundColor: 'white', padding: 20, margin: 20, borderRadius: 8 },
     modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
     detailRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4, alignItems: 'center' },
-    filterInputs: { paddingHorizontal: 16, paddingBottom: 8 },
+    filterSection: { margin: 16, marginTop: 0, padding: 16, backgroundColor: 'white', borderRadius: 8 },
     row: { flexDirection: 'row', gap: 8, marginBottom: 8 },
     dateInput: { flex: 1, backgroundColor: 'white' }
 });

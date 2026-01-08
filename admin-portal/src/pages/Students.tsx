@@ -112,7 +112,18 @@ export default function Students() {
 
     const createMutation = useMutation({
         mutationFn: (data: any) => {
-            const payload = { ...data, date_of_birth: data.dob };
+            // Map frontend fields to backend model fields
+            const payload = { 
+                ...data, 
+                date_of_birth: data.dob,
+                personal_phone: data.phone 
+            };
+            
+            // Remove frontend-only fields that are now mapped or not in model
+            delete (payload as any).dob;
+            delete (payload as any).phone;
+            delete (payload as any).address; // student model doesn't have address (guardian does)
+
             if (!payload.hostel) payload.hostel = null;
             if (!payload.room) payload.room = null;
             if (!payload.section) payload.section = null;
@@ -129,8 +140,9 @@ export default function Students() {
             setSelectedStudentForEdit(null);
             alert(selectedStudentForEdit ? 'Student updated!' : 'Student created!');
         },
-        onError: (err) => {
-            alert('Failed to save student: ' + JSON.stringify(err));
+        onError: (err: any) => {
+            const errorMsg = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+            alert('Failed to save student: ' + errorMsg);
         }
     });
 

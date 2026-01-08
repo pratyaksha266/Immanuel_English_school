@@ -137,8 +137,8 @@ export const staffService = {
         return response.data;
     },
 
-    wardenMarkLeft: async (id: string, photo?: string): Promise<any> => {
-        const response = await api.post(`staff/dashboard/${id}/warden_vacate/`, { verification_photo: photo });
+    wardenMarkLeft: async (id: string): Promise<any> => {
+        const response = await api.post(`staff/dashboard/${id}/warden_vacate/`, { verification_photo: null });
         return response.data;
     },
 

@@ -5,9 +5,13 @@ Django settings for outpass_system project.
 from pathlib import Path
 import os
 import dj_database_url
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -164,3 +168,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', 'your_account_sid_here')
 TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', 'your_auth_token_here')
 TWILIO_FROM_NUMBER = os.environ.get('TWILIO_FROM_NUMBER', '+1234567890') 
+
+# Debug: verify if credentials are loaded (don't print full secrets)
+if TWILIO_ACCOUNT_SID == 'your_account_sid_here':
+    print("WARNING: TWILIO_ACCOUNT_SID is still using the placeholder!")
+else:
+    print(f"DEBUG: TWILIO_ACCOUNT_SID loaded (starts with {TWILIO_ACCOUNT_SID[:4]}...)")
+
+if TWILIO_AUTH_TOKEN == 'your_auth_token_here':
+    print("WARNING: TWILIO_AUTH_TOKEN is still using the placeholder!")
+else:
+    print("DEBUG: TWILIO_AUTH_TOKEN loaded.")
+

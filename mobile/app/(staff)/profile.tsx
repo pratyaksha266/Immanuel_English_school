@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Avatar, List, Button, Divider, TextInput, Portal, Modal } from 'react-native-paper';
+import { Text, Avatar, List, Button, Divider, TextInput, Portal, Modal, Surface, Chip } from 'react-native-paper';
 import { useRouter, Stack } from 'expo-router';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { theme, SPACING } from '../../constants/theme';
 
-export default function ProfileScreen() {
+const ProfileScreen = () => {
     const { user, role, logout, setUser } = useAuthStore();
     const router = useRouter();
     const [isUpdating, setIsUpdating] = useState(false);
@@ -66,24 +67,26 @@ export default function ProfileScreen() {
             <Stack.Screen options={{ title: 'My Profile' }} />
 
             <View style={styles.header}>
-                <Avatar.Text size={80} label={user?.first_name?.[0] || 'U'} />
-                <Text variant="headlineSmall" style={styles.name}>{user?.first_name} {user?.last_name}</Text>
-                <Text variant="bodyMedium" style={{ color: 'gray' }}>{role}</Text>
+                <Surface style={styles.profileCard} elevation={2}>
+                    <Avatar.Text size={80} label={user?.first_name?.[0] || 'U'} style={{ backgroundColor: theme.colors.primaryContainer }} color={theme.colors.onPrimaryContainer} />
+                    <Text variant="headlineSmall" style={styles.name}>{user?.first_name} {user?.last_name}</Text>
+                    <Chip style={{ marginTop: 8 }}>{role}</Chip>
+                </Surface>
             </View>
 
-            <List.Section>
-                <List.Subheader>Information</List.Subheader>
-                <List.Item title="ID" description={user?.id || 'N/A'} left={props => <List.Icon {...props} icon="id-card" />} />
-                <List.Item title="Email" description={user?.email || 'N/A'} left={props => <List.Icon {...props} icon="email" />} />
-                <List.Item title="Phone" description={user?.phone || 'N/A'} left={props => <List.Icon {...props} icon="phone" />} />
-            </List.Section>
-
-            <Divider />
+            <Surface style={styles.infoCard} elevation={1}>
+                <List.Section>
+                    <List.Subheader>Information</List.Subheader>
+                    <List.Item title="ID" description={user?.id || 'N/A'} left={props => <List.Icon {...props} icon="id-card" color={theme.colors.primary} />} />
+                    <List.Item title="Email" description={user?.email || 'N/A'} left={props => <List.Icon {...props} icon="email" color={theme.colors.primary} />} />
+                    <List.Item title="Phone" description={user?.phone || 'N/A'} left={props => <List.Icon {...props} icon="phone" color={theme.colors.primary} />} />
+                </List.Section>
+            </Surface>
 
             <View style={styles.actions}>
-                <Button mode="contained-tonal" onPress={() => setEditVisible(true)} style={styles.btn}>Update Profile</Button>
-                <Button mode="outlined" onPress={() => setPassVisible(true)} style={styles.btn}>Change Password</Button>
-                <Button mode="contained" buttonColor="#B00020" onPress={handleLogout} style={styles.btn}>Logout</Button>
+                <Button mode="contained-tonal" icon="account-edit" onPress={() => setEditVisible(true)} style={styles.btn}>Update Profile</Button>
+                <Button mode="outlined" icon="lock-reset" onPress={() => setPassVisible(true)} style={styles.btn}>Change Password</Button>
+                <Button mode="contained" buttonColor={theme.colors.error} icon="logout" onPress={handleLogout} style={styles.btn}>Logout</Button>
             </View>
 
             <Portal>
@@ -113,13 +116,29 @@ export default function ProfileScreen() {
             </Portal>
         </ScrollView>
     );
-}
+};
+
+export default ProfileScreen;
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#fff' },
-    header: { alignItems: 'center', marginTop: 30, marginBottom: 20 },
-    name: { marginTop: 10, fontWeight: 'bold' },
-    actions: { padding: 20, gap: 12 },
+    container: { flex: 1, backgroundColor: '#f5f5f5' },
+    header: { alignItems: 'center', marginTop: 24, marginBottom: 16, paddingHorizontal: 16 },
+    profileCard: {
+        width: '100%',
+        alignItems: 'center',
+        padding: 24,
+        borderRadius: theme.roundness,
+        backgroundColor: 'white'
+    },
+    infoCard: {
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: theme.roundness,
+        backgroundColor: 'white',
+        paddingVertical: 8
+    },
+    name: { marginTop: 16, fontWeight: 'bold' },
+    actions: { padding: 16, gap: 12 },
     btn: { width: '100%' },
     modal: { backgroundColor: 'white', padding: 20, margin: 20, borderRadius: 8 },
     input: { marginBottom: 12 },
