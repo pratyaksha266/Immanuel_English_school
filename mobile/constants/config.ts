@@ -3,7 +3,7 @@
 // Use 'http://localhost:8000/api/' for iOS Simulator
 
 // DEVELOPMENT (Uncomment to use)
-// export const API_URL = 'http://192.168.144.142:8000/api/';
+// export const API_URL = 'http://192.168.222.142:8000/api/';
 
-// PRODUCTION (Uncomment to use for deployment)
+//PRODUCTION (Uncomment to use for deployment)
 export const API_URL = 'https://outpassapp.onrender.com/api/';

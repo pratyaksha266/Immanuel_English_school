@@ -89,9 +89,9 @@ export interface Outpass {
     fee_due?: number;
     fee_paid?: boolean;
 
-    qr_code?: string;
     exit_code?: string;
     return_code?: string;
+    qr_code?: string;
     meeting_scheduled?: boolean;
     meeting_date?: string;
     meeting_venue?: string;

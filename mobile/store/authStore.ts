@@ -12,7 +12,6 @@ interface AuthState {
     login: (phone: string, password: string, role: string) => Promise<boolean>;
     logout: () => Promise<void>;
     checkAuth: () => Promise<void>;
-    verifyOtp: (phone: string, otp: string) => Promise<boolean>;
     setUser: (user: any) => Promise<void>;
 }
 
@@ -57,29 +56,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         await AsyncStorage.removeItem('userId');
         await AsyncStorage.removeItem('user');
         set({ token: null, role: null, userId: null, user: null });
-    },
-
-    verifyOtp: async (phone, otp) => {
-        set({ isLoading: true });
-        try {
-            const response = await api.post('auth/verify-otp/', { phone, otp });
-            const { access, user_id, role, user: userData } = response.data;
-
-            await AsyncStorage.setItem('token', access);
-            await AsyncStorage.setItem('role', role);
-            await AsyncStorage.setItem('userId', String(user_id));
-            if (userData) {
-                await AsyncStorage.setItem('user', JSON.stringify(userData));
-            }
-
-            set({ token: access, role, userId: user_id, user: userData });
-            return true;
-        } catch (error) {
-            console.error('Verify OTP error:', error);
-            return false;
-        } finally {
-            set({ isLoading: false });
-        }
     },
 
     checkAuth: async () => {

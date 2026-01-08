@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Alert, TouchableOpacity } from 'react-native';
 import { Text, Card, Button, Avatar, IconButton, SegmentedButtons, Portal, Modal, TextInput, Divider, ActivityIndicator } from 'react-native-paper';
-import { useRouter, Stack, useFocusEffect } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useAuthStore } from '../../store/authStore';
 import { staffService } from '../../services/api';
 import { Outpass } from '../../types';
 import { StaffOutpassCard } from '../../components/StaffOutpassCard';
-import { FilterDropdown, FilterDatePicker } from '../../components/FilterInputs';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function StaffDashboard() {
@@ -29,47 +28,14 @@ export default function StaffDashboard() {
     const [detailVisible, setDetailVisible] = useState(false);
     const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
 
-    // HM Filters
-    const [isFilterExpanded, setIsFilterExpanded] = useState(false);
-    const [filterClass, setFilterClass] = useState('');
-    const [filterSection, setFilterSection] = useState('');
-    const [filterRoll, setFilterRoll] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterStartDate, setFilterStartDate] = useState('');
-    const [filterEndDate, setFilterEndDate] = useState('');
-
     // Warden Search
     const [searchParams, setSearchParams] = useState({ hostel: '', class_name: '', section: '', name: '' });
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
-    // Replaced useEffect with useFocusEffect to auto-refresh when screen is focused (e.g. back from Validate)
-    useFocusEffect(
-        React.useCallback(() => {
-            if (role === 'HM') {
-                fetchCategorizedRequests(category);
-            } else if (role === 'ACCOUNTANT') {
-                fetchAccountantDashboard();
-            } else if (role === 'WARDEN') {
-                fetchWardenDashboard();
-            } else if (role === 'GATE_STAFF') {
-                fetchGateDashboard();
-            }
-        }, [category, role])
-    );
-
     const fetchCategorizedRequests = async (cat: string) => {
         setLoading(true);
         try {
-            const params: any = { status: cat };
-            // Apply HM Filters if present
-            if (filterStatus) params.status = filterStatus.toLowerCase(); // Override category
-            if (filterClass) params.class_name = filterClass;
-            if (filterSection) params.section = filterSection;
-            if (filterRoll) params.roll_no = filterRoll;
-            if (filterStartDate) params.start_date = filterStartDate;
-            if (filterEndDate) params.end_date = filterEndDate;
-
-            const data = await staffService.getHMOutpasses(params);
+            const data = await staffService.getHMOutpasses({ status: cat });
             setRequests(data);
         } catch (error) {
             console.error(error);
@@ -82,6 +48,7 @@ export default function StaffDashboard() {
     const fetchAccountantDashboard = async () => {
         setLoading(true);
         try {
+            // Re-use getHMOutpasses or specific one. api.ts has getAccountantOutpasses
             const data = await staffService.getAccountantOutpasses({});
             setRequests(data);
         } catch (error) {
@@ -92,10 +59,27 @@ export default function StaffDashboard() {
         }
     };
 
+    useEffect(() => {
+        if (role === 'HM') {
+            fetchCategorizedRequests(category);
+        } else if (role === 'WARDEN') {
+            fetchWardenDashboard();
+        } else if (role === 'ACCOUNTANT') {
+            fetchAccountantDashboard();
+        } else if (role === 'GATE_STAFF') {
+            // Gate staff loaded statically or needs fetch? 
+            // renderGateContent calls fetchWardenDashboard logic? No, let's just set loading false
+            // Actually Gate Content shows "Recent Checkouts", so we should fetch relevant data
+            fetchGateDashboard();
+        } else {
+            setLoading(false);
+        }
+    }, [category, role]);
+
     const fetchGateDashboard = async () => {
         setLoading(true);
         try {
-            const data = await staffService.getHMOutpasses({ status: 'checked_out' });
+            const data = await staffService.getHMOutpasses({ status: 'checked_out' }); // Reuse
             setRequests(data);
         } catch (error) {
             console.error(error);
@@ -108,6 +92,7 @@ export default function StaffDashboard() {
     const fetchWardenDashboard = async () => {
         setLoading(true);
         try {
+            // Map category to status_param
             let status_param = '';
             if (category === 'pending') status_param = 'in_hostel';
             if (category === 'checked_out') status_param = 'checked_out';
@@ -115,6 +100,7 @@ export default function StaffDashboard() {
 
             const params: any = { status: status_param };
             if (searchParams.name) params.search = searchParams.name;
+            // Additional search filters can be applied on top of queryset or via backend if updated
 
             const data = await staffService.getHMOutpasses(params);
             setRequests(data);
@@ -137,9 +123,6 @@ export default function StaffDashboard() {
 
     const handleAction = async (action: string, id: string) => {
         try {
-            // Optimistic Update: Immediately remove from list to make UI feel instant
-            setRequests(prev => prev.filter(req => req.id !== id));
-
             if (action === 'approve') {
                 if (role === 'ACCOUNTANT') await staffService.accountantApprove(id);
                 else await staffService.approveOutpass(id);
@@ -166,9 +149,7 @@ export default function StaffDashboard() {
                 if (!result.canceled) {
                     await staffService.wardenMarkLeft(id, result.assets[0].uri);
                 } else {
-                    // Revert optimistic update if cancelled
-                    onRefresh();
-                    return;
+                    return; // Don't proceed if camera canceled
                 }
             }
             if (action === 'reject' && role === 'WARDEN') {
@@ -181,9 +162,7 @@ export default function StaffDashboard() {
             }
 
             Alert.alert("Success", `Action successful`);
-            // Background refresh to ensure consistency
-            onRefresh();
-
+            onRefresh(); // Refresh current view
             setRejectVisible(false);
             setMeetingVisible(false);
             setFeeVisible(false);
@@ -194,7 +173,6 @@ export default function StaffDashboard() {
         } catch (error) {
             console.error(error);
             Alert.alert("Error", "Failed to perform action");
-            onRefresh(); // Revert on error
         }
     };
 
@@ -237,79 +215,8 @@ export default function StaffDashboard() {
         </View>
     );
 
-    const clearFilters = () => {
-        setFilterClass('');
-        setFilterSection('');
-        setFilterRoll('');
-        setFilterStatus('');
-        setFilterStartDate('');
-        setFilterEndDate('');
-        // fetchCategorizedRequests(category); // Optional: auto-fetch on clear
-    };
-
     const renderHMContent = () => (
         <View style={{ flex: 1 }}>
-            <View style={styles.searchSection}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: filterClass || filterSection || filterRoll || filterStatus ? 8 : 0 }}>
-                    <Text variant="titleMedium">Advanced Filters</Text>
-                    <IconButton
-                        icon={isFilterExpanded ? "chevron-up" : "filter-variant"}
-                        onPress={() => setIsFilterExpanded(!isFilterExpanded)}
-                    />
-                </View>
-                {isFilterExpanded && (
-                    <View style={styles.expandedSearch}>
-                        <FilterDropdown
-                            label="Status"
-                            value={filterStatus}
-                            onSelect={setFilterStatus}
-                            options={[
-                                { label: 'Pending', value: 'pending' },
-                                { label: 'Approved', value: 'approved' },
-                                { label: 'Out / Active', value: 'checked_out' },
-                                { label: 'Returned', value: 'completed' },
-                                { label: 'Rejected', value: 'rejected' },
-                                { label: 'Meeting', value: 'meeting' },
-                            ]}
-                        />
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <FilterDropdown
-                                label="Class"
-                                value={filterClass}
-                                onSelect={setFilterClass}
-                                style={{ flex: 1 }}
-                                options={Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}`, value: `${i + 1}` }))}
-                            />
-                            <FilterDropdown
-                                label="Section"
-                                value={filterSection}
-                                onSelect={setFilterSection}
-                                style={{ flex: 1 }}
-                                options={['A', 'B', 'C', 'D'].map(s => ({ label: s, value: s }))}
-                            />
-                        </View>
-                        <TextInput label="Roll No" value={filterRoll} onChangeText={setFilterRoll} style={styles.smallInput} mode="outlined" dense />
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <FilterDatePicker
-                                label="From"
-                                value={filterStartDate}
-                                onChange={setFilterStartDate}
-                                style={{ flex: 1 }}
-                            />
-                            <FilterDatePicker
-                                label="To"
-                                value={filterEndDate}
-                                onChange={setFilterEndDate}
-                                style={{ flex: 1 }}
-                            />
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                            <Button mode="outlined" onPress={clearFilters} style={{ flex: 1 }}>Clear</Button>
-                            <Button mode="contained" onPress={() => fetchCategorizedRequests(category)} style={{ flex: 1 }}>Apply</Button>
-                        </View>
-                    </View>
-                )}
-            </View>
             <View style={styles.quickActions}>
                 <TouchableOpacity style={styles.actionItem} onPress={() => router.push('/(staff)/priority')}>
                     <Avatar.Icon size={40} icon="fire" style={{ backgroundColor: '#FFCDD2' }} color="#D32F2F" />
@@ -429,7 +336,7 @@ export default function StaffDashboard() {
                 style={styles.segmented}
                 buttons={[
                     { value: 'pending', label: 'In Hostel' },
-                    { value: 'checked_out', label: 'Checked Out' },
+                    { value: 'checked_out', label: 'Ready to Exit' },
                     { value: 'outside', label: 'Outside' },
                     { value: 'all', label: 'All Today' },
                 ]}
@@ -456,6 +363,7 @@ export default function StaffDashboard() {
                                 role={role || ''}
                                 onReject={(id) => { setSelectedId(id); setRejectVisible(true); }}
                                 onMarkLeftHostel={(id) => handleAction('warden-left', id)}
+                                onMarkReturned={(id) => handleAction('return', id)}
                                 onViewDetail={(item) => { setSelectedOutpass(item); setDetailVisible(true); }}
                             />
                         ))

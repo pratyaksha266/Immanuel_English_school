@@ -122,18 +122,7 @@ export const staffService = {
         return response.data;
     },
 
-    getHMOutpasses: async (params: {
-        status?: string;
-        priority?: boolean;
-        history?: boolean;
-        date?: string;
-        search?: string;
-        class_name?: string;
-        section?: string;
-        roll_no?: string;
-        start_date?: string;
-        end_date?: string;
-    }): Promise<Outpass[]> => {
+    getHMOutpasses: async (params: { status?: string; priority?: boolean; history?: boolean; date?: string }): Promise<Outpass[]> => {
         const response = await api.get<Outpass[]>('staff/dashboard/', { params });
         return response.data;
     },

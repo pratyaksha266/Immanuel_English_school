@@ -113,7 +113,7 @@ export const StaffOutpassCard: React.FC<StaffOutpassCardProps> = ({
             <Divider style={styles.divider} />
 
             <Card.Actions style={styles.actions}>
-                {(outpass.status === 'PENDING' || (outpass.status === 'FEE_PENDING' && role === 'HM')) && (
+                {(outpass.status === 'PENDING' || (outpass.status === 'FEE_PENDING' && role === 'HM')) && role !== 'ACCOUNTANT' && (
                     <>
                         <Button mode="text" textColor="red" onPress={() => onReject?.(outpass.id)}>Reject</Button>
                         <Button mode="text" onPress={() => onMeeting?.(outpass.id)}>Meeting</Button>
@@ -146,7 +146,7 @@ export const StaffOutpassCard: React.FC<StaffOutpassCardProps> = ({
                     <Button mode="outlined" onPress={() => onViewDetail?.(outpass)}>View Details</Button>
                 )}
 
-                {(outpass.status === 'CHECKED_OUT' || outpass.status === 'OVERDUE') && (
+                {(outpass.status === 'CHECKED_OUT' || outpass.status === 'OVERDUE') && role !== 'GATE_STAFF' && (
                     <>
                         <Button mode="outlined" onPress={() => onViewDetail?.(outpass)}>Contact</Button>
                         <Button mode="contained" onPress={() => onMarkReturned?.(outpass.id)}>Mark Returned</Button>
@@ -155,7 +155,7 @@ export const StaffOutpassCard: React.FC<StaffOutpassCardProps> = ({
 
                 {role === 'ACCOUNTANT' && (outpass.status === 'PENDING' || outpass.status === 'FEE_PENDING') && (
                     <>
-                        <Button mode="outlined" onPress={() => onFeeDue?.(outpass.id)}>Fee Due</Button>
+                        {!outpass.fee_paid && <Button mode="outlined" onPress={() => onFeeDue?.(outpass.id)}>Fee Due</Button>}
                         {!outpass.fee_paid && (
                             <Button mode="contained" onPress={() => onApprove?.(outpass.id)}>Mark Paid</Button>
                         )}

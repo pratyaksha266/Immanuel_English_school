@@ -5,7 +5,6 @@ import { Stack } from 'expo-router';
 import { staffService } from '../../services/api';
 import { Outpass } from '../../types';
 import { StaffOutpassCard } from '../../components/StaffOutpassCard';
-import { FilterDropdown, FilterDatePicker } from '../../components/FilterInputs';
 
 export default function HistoryScreen() {
     const [requests, setRequests] = useState<Outpass[]>([]);
@@ -13,32 +12,26 @@ export default function HistoryScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Advanced Filters
-    const [isFilterExpanded, setIsFilterExpanded] = useState(false);
-    const [filterClass, setFilterClass] = useState('');
-    const [filterSection, setFilterSection] = useState('');
-    const [filterRoll, setFilterRoll] = useState('');
-    const [filterStatus, setFilterStatus] = useState('');
-    const [filterStartDate, setFilterStartDate] = useState('');
-    const [filterEndDate, setFilterEndDate] = useState('');
-
-    // UI State
+    // Filters
+    const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const [filterMenuVisible, setFilterMenuVisible] = useState(false);
     const [detailVisible, setDetailVisible] = useState(false);
     const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [startTime, setStartTime] = useState('');
+    const [endTime, setEndTime] = useState('');
 
-    const fetchHistory = async () => {
+    const fetchHistory = async (search = searchQuery, status = filterStatus) => {
         setLoading(true);
         try {
             const params: any = { history: true };
-            if (searchQuery) params.search = searchQuery;
-
-            // Advanced Filters
-            if (filterStatus) params.status = filterStatus.toLowerCase();
-            if (filterClass) params.class_name = filterClass;
-            if (filterSection) params.section = filterSection;
-            if (filterRoll) params.roll_no = filterRoll;
-            if (filterStartDate) params.start_date = filterStartDate;
-            if (filterEndDate) params.end_date = filterEndDate;
+            if (search) params.search = search;
+            if (status) params.status = status;
+            if (startDate) params.start_date = startDate;
+            if (endDate) params.end_date = endDate;
+            if (startTime) params.start_time = startTime;
+            if (endTime) params.end_time = endTime;
 
             const data = await staffService.getHMOutpasses(params);
             setRequests(data);
@@ -60,18 +53,15 @@ export default function HistoryScreen() {
         fetchHistory();
     };
 
-    const clearFilters = () => {
-        setFilterClass('');
-        setFilterSection('');
-        setFilterRoll('');
-        setFilterStatus('');
-        setFilterStartDate('');
-        setFilterEndDate('');
-    };
-
     const handleSearch = (query: string) => {
         setSearchQuery(query);
-        // fetchHistory(); // Trigger search on enter or debounce if needed, simplified to manual refresh or use effect
+        fetchHistory(query, filterStatus);
+    };
+
+    const handleFilter = (status: string | null) => {
+        setFilterStatus(status);
+        setFilterMenuVisible(false);
+        fetchHistory(searchQuery, status);
     };
 
     const handleAction = async (action: string, id: string) => {
@@ -88,76 +78,81 @@ export default function HistoryScreen() {
         <View style={styles.container}>
             <Stack.Screen options={{
                 title: 'History',
+                headerRight: () => (
+                    <Menu
+                        visible={filterMenuVisible}
+                        onDismiss={() => setFilterMenuVisible(false)}
+                        anchor={<IconButton icon="filter-variant" onPress={() => setFilterMenuVisible(true)} />}
+                    >
+                        <Menu.Item onPress={() => handleFilter(null)} title="All Status" />
+                        <Divider />
+                        <Menu.Item onPress={() => handleFilter('pending')} title="Pending" />
+                        <Menu.Item onPress={() => handleFilter('approved')} title="Approved" />
+                        <Menu.Item onPress={() => handleFilter('not_returned')} title="Not Returned" />
+                        <Menu.Item onPress={() => handleFilter('returned')} title="Returned" />
+                    </Menu>
+                )
             }} />
 
             <Searchbar
-                placeholder="Search Name/Roll"
-                onChangeText={setSearchQuery}
-                onIconPress={fetchHistory}
-                onSubmitEditing={fetchHistory}
+                placeholder="Search Class/Roll/Name"
+                onChangeText={handleSearch}
                 value={searchQuery}
                 style={styles.searchBar}
             />
 
-            <View style={{ padding: 16 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: filterClass || filterSection || filterRoll || filterStatus ? 8 : 0 }}>
-                    <Text variant="titleMedium">Advanced Filters</Text>
-                    <IconButton
-                        icon={isFilterExpanded ? "chevron-up" : "filter-variant"}
-                        onPress={() => setIsFilterExpanded(!isFilterExpanded)}
+            <View style={styles.filterChipContainer}>
+                {filterStatus && (
+                    <Chip onClose={() => handleFilter(null)} style={styles.chip}>
+                        Status: {filterStatus}
+                    </Chip>
+                )}
+                {(startDate || endDate || startTime || endTime) && (
+                    <Chip onClose={() => { setStartDate(''); setEndDate(''); setStartTime(''); setEndTime(''); fetchHistory(searchQuery, filterStatus); }} style={styles.chip}>
+                        Date/Time Filter Active
+                    </Chip>
+                )}
+            </View>
+
+            {/* Filter Inputs (Expandable) */}
+            <View style={styles.filterInputs}>
+                <View style={styles.row}>
+                    <TextInput
+                        label="From Date (YYYY-MM-DD)"
+                        value={startDate}
+                        onChangeText={setStartDate}
+                        mode="outlined"
+                        dense
+                        style={styles.dateInput}
+                    />
+                    <TextInput
+                        label="To Date"
+                        value={endDate}
+                        onChangeText={setEndDate}
+                        mode="outlined"
+                        dense
+                        style={styles.dateInput}
                     />
                 </View>
-                {isFilterExpanded && (
-                    <View style={{ gap: 8 }}>
-                        <FilterDropdown
-                            label="Status"
-                            value={filterStatus}
-                            onSelect={setFilterStatus}
-                            options={[
-                                { label: 'Pending', value: 'pending' },
-                                { label: 'Approved', value: 'approved' },
-                                { label: 'Out / Active', value: 'checked_out' },
-                                { label: 'Returned', value: 'completed' },
-                                { label: 'Rejected', value: 'rejected' },
-                            ]}
-                        />
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <FilterDropdown
-                                label="Class"
-                                value={filterClass}
-                                onSelect={setFilterClass}
-                                style={{ flex: 1 }}
-                                options={Array.from({ length: 12 }, (_, i) => ({ label: `${i + 1}`, value: `${i + 1}` }))}
-                            />
-                            <FilterDropdown
-                                label="Section"
-                                value={filterSection}
-                                onSelect={setFilterSection}
-                                style={{ flex: 1 }}
-                                options={['A', 'B', 'C', 'D'].map(s => ({ label: s, value: s }))}
-                            />
-                        </View>
-                        <TextInput label="Roll No" value={filterRoll} onChangeText={setFilterRoll} style={{ fontSize: 14 }} mode="outlined" dense />
-                        <View style={{ flexDirection: 'row', gap: 8 }}>
-                            <FilterDatePicker
-                                label="From"
-                                value={filterStartDate}
-                                onChange={setFilterStartDate}
-                                style={{ flex: 1 }}
-                            />
-                            <FilterDatePicker
-                                label="To"
-                                value={filterEndDate}
-                                onChange={setFilterEndDate}
-                                style={{ flex: 1 }}
-                            />
-                        </View>
-                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                            <Button mode="outlined" onPress={clearFilters} style={{ flex: 1 }}>Clear</Button>
-                            <Button mode="contained" onPress={fetchHistory} style={{ flex: 1 }}>Apply</Button>
-                        </View>
-                    </View>
-                )}
+                <View style={styles.row}>
+                    <TextInput
+                        label="From Time (HH:MM)"
+                        value={startTime}
+                        onChangeText={setStartTime}
+                        mode="outlined"
+                        dense
+                        style={styles.dateInput}
+                    />
+                    <TextInput
+                        label="To Time"
+                        value={endTime}
+                        onChangeText={setEndTime}
+                        mode="outlined"
+                        dense
+                        style={styles.dateInput}
+                    />
+                </View>
+                <Button mode="contained-tonal" style={{ marginVertical: 4 }} onPress={() => fetchHistory()}>Apply Date/Time Filter</Button>
             </View>
 
             {loading && !refreshing ? (
@@ -245,5 +240,8 @@ const styles = StyleSheet.create({
     center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
     modal: { backgroundColor: 'white', padding: 20, margin: 20, borderRadius: 8 },
     modalActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 20 },
-    detailRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4, alignItems: 'center' }
+    detailRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 4, alignItems: 'center' },
+    filterInputs: { paddingHorizontal: 16, paddingBottom: 8 },
+    row: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    dateInput: { flex: 1, backgroundColor: 'white' }
 });

@@ -14,6 +14,8 @@ export default function ParentDashboard() {
     const [activeOutpasses, setActiveOutpasses] = useState<Outpass[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Menu state
     const [menuVisible, setMenuVisible] = useState(false);
 
     useEffect(() => {
@@ -47,25 +49,30 @@ export default function ParentDashboard() {
         router.replace('/(auth)/login');
     };
 
+    // Render Header Options
+    const renderHeader = () => (
+        <Stack.Screen
+            options={{
+                title: "Dashboard",
+                headerShown: true,
+                headerRight: () => (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <IconButton
+                            icon="account-circle"
+                            size={30}
+                            onPress={() => router.push('/(parent)/profile')}
+                        />
+                    </View>
+                ),
+            }}
+        />
+    );
+
     if (loading) return <View style={styles.center}><ActivityIndicator size="large" /></View>;
 
     return (
         <>
-            <Stack.Screen
-                options={{
-                    title: "Dashboard",
-                    headerShown: true,
-                    headerRight: () => (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <IconButton
-                                icon="account-circle"
-                                size={30}
-                                onPress={() => router.push('/(parent)/profile')}
-                            />
-                        </View>
-                    ),
-                }}
-            />
+            {renderHeader()}
             <ScrollView
                 style={styles.container}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
