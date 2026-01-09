@@ -11,6 +11,9 @@ from apps.users.models import User
 from apps.notifications.utils import send_sms
 import uuid
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class OutpassViewSet(viewsets.ModelViewSet):
     serializer_class = OutpassSerializer
@@ -192,34 +195,40 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='hm/reject')
     def hm_reject(self, request, pk=None):
-        if request.user.role != User.Roles.HM:
-             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
-        
-        reason = request.data.get('reason', 'No reason provided')
-        outpass = self.get_object()
-        outpass.status = Outpass.Status.REJECTED
-        outpass.save() # Could add rejection_reason field to Outpass if needed, currently storing in Approval or assuming logic? 
-        # Outpass model doesn't have rejection_reason, but Approval does have 'comments'.
-        
-        Approval.objects.update_or_create(
-            outpass=outpass,
-            approver_role=User.Roles.HM,
-            defaults={
-                'approver': request.user,
-                'status': Approval.Status.REJECTED,
-                'comments': reason
-            }
-        )
-        
-        # Notify Parent
-        student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
-        parent_phone = outpass.parent.phone
-        msg = f"Immanuel English School: The outpass for {student_name} is REJECTED. Please check the dashboard or contact the school."
-        
-        success, result = send_sms(parent_phone, msg)
-        print(f"DEBUG SMS: HM Reject attempt to {parent_phone}. Success: {success}, Result: {result}")
-        
-        return Response({'status': 'rejected by HM', 'sms_sent': success})
+        try:
+            print(f"DEBUG: HM Reject Request by {request.user.phone} for Outpass {pk}")
+            
+            if request.user.role not in [User.Roles.HM, User.Roles.ADMIN]:
+                return Response({'error': 'Only HM or Admin can perform this action'}, status=status.HTTP_403_FORBIDDEN)
+            
+            reason = request.data.get('reason', 'No reason provided')
+            outpass = self.get_object()
+            outpass.status = Outpass.Status.REJECTED
+            outpass.save()
+            
+            Approval.objects.update_or_create(
+                outpass=outpass,
+                approver_role=User.Roles.HM,
+                defaults={
+                    'approver': request.user,
+                    'status': Approval.Status.REJECTED,
+                    'comments': reason
+                }
+            )
+            
+            # Notify Parent
+            student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+            parent_phone = outpass.parent.phone
+            msg = f"Immanuel English School: The outpass for {student_name} is REJECTED. Reason: {reason}"
+            
+            success, result = send_sms(parent_phone, msg)
+            print(f"DEBUG SMS: HM Reject attempt to {parent_phone}. Success: {success}, Result: {result}")
+            
+            return Response({'status': 'rejected by HM', 'sms_sent': success})
+            
+        except Exception as e:
+            logger.exception(f"Error in hm_reject for outpass {pk}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], url_path='accountant/approve')
     def accountant_approve(self, request, pk=None):
@@ -259,58 +268,83 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='hm/approve')
     def hm_approve(self, request, pk=None):
-        if request.user.role != User.Roles.HM:
-            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
-        
-        outpass = self.get_object()
-        # Override logic
-        outpass.status = Outpass.Status.APPROVED
-        outpass.save()
-
-        Approval.objects.update_or_create(
-            outpass=outpass,
-            approver_role=User.Roles.HM,
-            defaults={
-                'approver': request.user,
-                'status': Approval.Status.APPROVED
-            }
-        )
-        
-        # Notify Parent
-        student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
-        parent_phone = outpass.parent.phone
-        msg = f"Immanuel English School: The outpass for {student_name} is APPROVED. You will receive an exit code once the Warden clears the departure."
-        
-        success, result = send_sms(parent_phone, msg)
-        print(f"DEBUG SMS: HM Approval attempt to {parent_phone}. Success: {success}, Result: {result}")
-        
-        return Response({'status': 'approved by HM', 'sms_sent': success})
-
-    @action(detail=True, methods=['post'], url_path='hm/meeting')
-    def call_meeting(self, request, pk=None):
-        if request.user.role != User.Roles.HM:
-            return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
-        
-        outpass = self.get_object()
-        serializer = MeetingSerializer(data=request.data)
-        if serializer.is_valid():
-            outpass.meeting_scheduled = True
-            outpass.meeting_date = serializer.validated_data['date']
-            outpass.meeting_venue = serializer.validated_data['venue']
-            outpass.meeting_notes = serializer.validated_data.get('reason', '')
-            outpass.status = Outpass.Status.MEETING
+        try:
+            print(f"DEBUG: HM Approval Request by {request.user.phone} (Role: {request.user.role}) for Outpass {pk}")
+            
+            if request.user.role not in [User.Roles.HM, User.Roles.ADMIN]:
+                print(f"DEBUG: Permission Denied. Role {request.user.role} is not HM or ADMIN")
+                return Response({'error': 'Only HM or Admin can perform this action'}, status=status.HTTP_403_FORBIDDEN)
+            
+            outpass = self.get_object()
+            print(f"DEBUG: Found outpass {outpass.id} for student {outpass.student.first_name}")
+            
+            # Update status
+            outpass.status = Outpass.Status.APPROVED
             outpass.save()
+            print(f"DEBUG: Outpass status updated to APPROVED")
+
+            # Create or update approval record
+            Approval.objects.update_or_create(
+                outpass=outpass,
+                approver_role=User.Roles.HM,
+                defaults={
+                    'approver': request.user,
+                    'status': Approval.Status.APPROVED
+                }
+            )
+            print(f"DEBUG: Approval record created/updated")
             
             # Notify Parent
             student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
             parent_phone = outpass.parent.phone
-            msg = f"Immanuel English School: Meeting scheduled for {student_name}. Date: {outpass.meeting_date}, Venue: {outpass.meeting_venue}."
+            msg = f"Immanuel English School: The outpass for {student_name} is APPROVED. You will receive an exit code once the Warden clears the departure."
             
             success, result = send_sms(parent_phone, msg)
-            print(f"DEBUG SMS: HM Meeting attempt to {parent_phone}. Success: {success}, Result: {result}")
+            print(f"DEBUG SMS: HM Approval attempt to {parent_phone}. Success: {success}, Result: {result}")
             
-            return Response({'status': 'meeting scheduled', 'sms_sent': success})
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'status': 'approved by HM', 'sms_sent': success})
+            
+        except Exception as e:
+            import traceback
+            error_trace = traceback.format_exc()
+            print(f"CRITICAL ERROR in hm_approve: {str(e)}\n{error_trace}")
+            logger.exception(f"Error in hm_approve for outpass {pk}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='hm/meeting')
+    def call_meeting(self, request, pk=None):
+        try:
+            print(f"DEBUG: HM Meeting Request by {request.user.phone} for Outpass {pk}")
+            
+            if request.user.role not in [User.Roles.HM, User.Roles.ADMIN]:
+                return Response({'error': 'Only HM or Admin can perform this action'}, status=status.HTTP_403_FORBIDDEN)
+            
+            outpass = self.get_object()
+            serializer = MeetingSerializer(data=request.data)
+            
+            if serializer.is_valid():
+                outpass.meeting_scheduled = True
+                outpass.meeting_date = serializer.validated_data['date']
+                outpass.meeting_venue = serializer.validated_data['venue']
+                outpass.meeting_notes = serializer.validated_data.get('reason', '')
+                outpass.status = Outpass.Status.MEETING
+                outpass.save()
+                
+                # Notify Parent
+                student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
+                parent_phone = outpass.parent.phone
+                msg = f"Immanuel English School: Meeting scheduled for {student_name}. Date: {outpass.meeting_date.strftime('%Y-%m-%d %H:%M')}, Venue: {outpass.meeting_venue}."
+                
+                success, result = send_sms(parent_phone, msg)
+                print(f"DEBUG SMS: HM Meeting attempt to {parent_phone}. Success: {success}, Result: {result}")
+                
+                return Response({'status': 'meeting scheduled', 'sms_sent': success})
+                
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.exception(f"Error in call_meeting for outpass {pk}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=['post'], url_path='mark-returned')
     def mark_returned(self, request, pk=None):

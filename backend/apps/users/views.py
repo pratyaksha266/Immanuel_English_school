@@ -11,6 +11,7 @@ from .serializers import (
     LoginSerializer, OtpVerifySerializer, 
     ChangePasswordSerializer, PasswordResetSerializer
 )
+from apps.notifications.utils import send_sms
 
 User = get_user_model()
 
@@ -105,30 +106,15 @@ class SendOtpView(views.APIView):
                 expires_at=expires_at
             )
             
-            # Send SMS via Twilio
-            from twilio.rest import Client
-            from django.conf import settings
+            # Send SMS via unified utility
+            success, result = send_sms(phone, f"Your Outpass App Login OTP is: {otp}")
             
-            try:
-                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-                
-                # Format phone number for Twilio (E.164)
-                # Assuming Indian numbers if no country code provided
-                to_number = phone
-                if not to_number.startswith('+'):
-                    to_number = f"+91{to_number}"
-                
-                message = client.messages.create(
-                    body=f"Your Outpass App Login OTP is: {otp}",
-                    from_=settings.TWILIO_FROM_NUMBER,
-                    to=to_number
-                )
-                print(f"====== Twilio SMS Sent to {to_number}: SID={message.sid} ======")
+            if success:
+                print(f"====== SMS Sent to {phone}: SID={result} ======")
                 return Response({"message": "OTP sent successfully via SMS", "dev_otp": otp}, status=status.HTTP_200_OK)
-            except Exception as e:
-                print(f"!!!!!! Twilio Error: {e}")
-                # Fallback to dev_otp in response if Twilio fails
-                return Response({"message": "Failed to send SMS, check console", "dev_otp": otp, "error": str(e)}, status=status.HTTP_200_OK)
+            else:
+                print(f"!!!!!! SMS Error: {result}")
+                return Response({"message": "Failed to send SMS", "dev_otp": otp, "error": result}, status=status.HTTP_200_OK)
         print("!!! Serializer Errors:", serializer.errors)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

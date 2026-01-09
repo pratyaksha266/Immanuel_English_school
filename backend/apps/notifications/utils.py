@@ -11,15 +11,35 @@ def send_sms(to_phone, message_body):
     This avoids library-specific hangs on certain Windows environments.
     """
     try:
+        # Strip any accidental whitespace from credentials
+        sid = str(settings.TWILIO_ACCOUNT_SID).strip()
+        token = str(settings.TWILIO_AUTH_TOKEN).strip()
+        from_number = str(settings.TWILIO_FROM_NUMBER).strip()
+        
+        # Detect if placeholders are still being used (production safety)
+        if "your_" in sid.lower() or "your_" in token.lower() or "123456" in from_number:
+            error_msg = "Twilio credentials are not configured! Please check Render environment variables."
+            logger.error(error_msg)
+            print(f"DEBUG ERROR: {error_msg}")
+            return False, error_msg
+
         # Standardize phone number format (E.164)
-        formatted_phone = str(to_phone).strip()
-        if not formatted_phone.startswith('+'):
+        formatted_phone = str(to_phone).strip().replace(" ", "").replace("-", "")
+        
+        # Mask credentials for logging
+        masked_sid = f"{sid[:4]}...{sid[-4:]}" if len(sid) > 8 else "****"
+        print(f"DEBUG: Initializing SMS. SID={masked_sid}, From={from_number}")
+        
+        # If it's 10 digits, assume India
+        if len(formatted_phone) == 10 and formatted_phone.isdigit():
+            formatted_phone = f"+91{formatted_phone}"
+        # If it starts with 91 but no +, add +
+        elif formatted_phone.startswith('91') and len(formatted_phone) == 12:
+            formatted_phone = f"+{formatted_phone}"
+        # Ensure it starts with +
+        elif not formatted_phone.startswith('+'):
             formatted_phone = f"+91{formatted_phone}"
             
-        sid = settings.TWILIO_ACCOUNT_SID
-        token = settings.TWILIO_AUTH_TOKEN
-        from_number = settings.TWILIO_FROM_NUMBER
-        
         url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
         
         payload = {
@@ -28,7 +48,7 @@ def send_sms(to_phone, message_body):
             'Body': message_body,
         }
         
-        print(f"DEBUG: Attempting raw SMS request to {formatted_phone}...")
+        print(f"DEBUG: Attempting raw SMS request to {formatted_phone} from {from_number}...")
         
         response = requests.post(
             url, 
@@ -43,8 +63,15 @@ def send_sms(to_phone, message_body):
             print(f"DEBUG: SMS sent successfully. SID: {result.get('sid')}")
             return True, result.get('sid')
         else:
-            error_msg = f"HTTP {response.status_code}: {response.text}"
-            logger.error(f"Twilio API Error: {error_msg}")
+            error_details = response.text
+            try:
+                error_json = response.json()
+                error_details = error_json.get('message', error_details)
+            except:
+                pass
+            
+            error_msg = f"Twilio API Error {response.status_code}: {error_details}"
+            logger.error(error_msg)
             print(f"DEBUG ERROR: {error_msg}")
             return False, error_msg
             
