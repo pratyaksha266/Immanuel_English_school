@@ -214,10 +214,12 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
         # Notify Parent
         student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
         parent_phone = outpass.parent.phone
-        msg = f"Immanuel English School: The outpass request for {student_name} has been REJECTED by HM. Reason: {reason}"
-        send_sms(parent_phone, msg)
+        msg = f"Immanuel English School: The outpass for {student_name} is REJECTED. Please check the dashboard or contact the school."
         
-        return Response({'status': 'rejected by HM'})
+        success, result = send_sms(parent_phone, msg)
+        print(f"DEBUG SMS: HM Reject attempt to {parent_phone}. Success: {success}, Result: {result}")
+        
+        return Response({'status': 'rejected by HM', 'sms_sent': success})
 
     @action(detail=True, methods=['post'], url_path='accountant/approve')
     def accountant_approve(self, request, pk=None):
@@ -278,9 +280,11 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
         student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
         parent_phone = outpass.parent.phone
         msg = f"Immanuel English School: The outpass for {student_name} is APPROVED. You will receive an exit code once the Warden clears the departure."
-        send_sms(parent_phone, msg)
         
-        return Response({'status': 'approved by HM'})
+        success, result = send_sms(parent_phone, msg)
+        print(f"DEBUG SMS: HM Approval attempt to {parent_phone}. Success: {success}, Result: {result}")
+        
+        return Response({'status': 'approved by HM', 'sms_sent': success})
 
     @action(detail=True, methods=['post'], url_path='hm/meeting')
     def call_meeting(self, request, pk=None):
@@ -301,9 +305,11 @@ class StaffDashboardViewSet(viewsets.ReadOnlyModelViewSet):
             student_name = f"{outpass.student.first_name} {outpass.student.last_name}"
             parent_phone = outpass.parent.phone
             msg = f"Immanuel English School: Meeting scheduled for {student_name}. Date: {outpass.meeting_date}, Venue: {outpass.meeting_venue}."
-            send_sms(parent_phone, msg)
             
-            return Response({'status': 'meeting scheduled'})
+            success, result = send_sms(parent_phone, msg)
+            print(f"DEBUG SMS: HM Meeting attempt to {parent_phone}. Success: {success}, Result: {result}")
+            
+            return Response({'status': 'meeting scheduled', 'sms_sent': success})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['post'], url_path='mark-returned')

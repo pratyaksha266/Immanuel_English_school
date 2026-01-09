@@ -15,26 +15,24 @@ from .serializers import (
 User = get_user_model()
 
 class AdminLoginView(views.APIView):
-    permission_classes = []
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
-        phone = request.data.get('phone')
-        password = request.data.get('password')
+        phone = str(request.data.get('phone', '')).strip()
+        password = str(request.data.get('password', '')).strip()
         
-        print(f"Login Attempt: Phone={phone}, Password={password}")
+        print(f"DEBUG ADMIN LOGIN: Attempting login for Phone='{phone}'")
         
         user = User.objects.filter(phone=phone).first()
-        print(f"User Found: {user}")
-        
-        if user:
-            print(f"Role: {user.role}")
-            print(f"Pass Check: {user.check_password(password)}")
         
         if user and user.check_password(password):
             allowed_roles = ['ADMIN', 'HM', 'ACCOUNTANT', 'WARDEN', 'GATE_STAFF']
             if user.role not in allowed_roles:
+                 print(f"DEBUG ADMIN LOGIN: Access denied for role {user.role}")
                  return Response({"error": "Access denied. Admin portal is for staff/admin only."}, status=status.HTTP_403_FORBIDDEN)
             
+            print(f"DEBUG ADMIN LOGIN: Success for user {phone}")
             refresh = RefreshToken.for_user(user)
             return Response({
                 'refresh': str(refresh),
@@ -43,6 +41,10 @@ class AdminLoginView(views.APIView):
                 'user_id': user.id
             }, status=status.HTTP_200_OK)
         
+        print(f"DEBUG ADMIN LOGIN: Failed for Phone='{phone}'. User found: {bool(user)}")
+        if user:
+            print(f"DEBUG ADMIN LOGIN: Password check failed for {phone}")
+            
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 print("VIEWS.PY LOADED --------------------------------")
