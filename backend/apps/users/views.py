@@ -2,7 +2,7 @@ import random
 import csv
 from django.utils import timezone
 from django.http import HttpResponse
-from rest_framework import status, views
+from rest_framework import status, views, permissions
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
