@@ -55,13 +55,17 @@ class PasswordLoginView(views.APIView):
     authentication_classes = []
 
     def post(self, request):
+        import time
+        start_time = time.time()
+        
         phone = str(request.data.get('phone', '')).strip()
         password = str(request.data.get('password', '')).strip()
         role = request.data.get('role')
         
-        print(f"DEBUG LOGIN: Phone='{phone}', Pass='{password}', Role='{role}'")
+        print(f"DEBUG LOGIN: Phone='{phone}', Role='{role}'")
 
-        user = User.objects.filter(phone=phone).first()
+        # Optimize query with select_related
+        user = User.objects.select_related('parent_profile', 'staff_profile').filter(phone=phone).first()
         print(f"DEBUG LOGIN: User found: {user}")
         if user:
              print(f"DEBUG LOGIN: User Role: {user.role}, CheckPass: {user.check_password(password)}")
@@ -72,15 +76,69 @@ class PasswordLoginView(views.APIView):
                  return Response({"error": f"User is not a {role}"}, status=status.HTTP_403_FORBIDDEN)
 
             refresh = RefreshToken.for_user(user)
-            return Response({
+            
+            response_data = {
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
                 'role': user.role,
                 'user_id': user.id,
-                'parent_profile': getattr(user, 'parent_profile', None) and {
-                    "occupation": user.parent_profile.occupation
-                } or None
-            }, status=status.HTTP_200_OK)
+                'user': {
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'phone': user.phone,
+                    'email': user.email
+                }
+            }
+            
+            # Include dashboard data to reduce subsequent API calls
+            if user.role == 'PARENT':
+                from apps.students.models import Student
+                from apps.outpasses.models import Outpass
+                
+                # Fetch children
+                children = Student.objects.filter(
+                    parent_relationships__parent=user
+                ).select_related('class_obj', 'section', 'hostel', 'room').distinct()
+                
+                response_data['dashboard_data'] = {
+                    'children': [{
+                        'id': str(child.id),
+                        'first_name': child.first_name,
+                        'last_name': child.last_name,
+                        'admission_number': child.admission_number,
+                        'roll_number': child.roll_number,
+                        'class_name': child.class_obj.name if child.class_obj else '',
+                        'section_name': child.section.name if child.section else '',
+                        'hostel_name': child.hostel.name if child.hostel else '',
+                        'room_number': child.room.number if child.room else ''
+                    } for child in children],
+                    'active_outpasses': []
+                }
+                
+                # Fetch active outpasses
+                active_statuses = ['PENDING', 'FEE_PENDING', 'APPROVED', 'READY_FOR_EXIT', 'CHECKED_OUT', 'OVERDUE', 'MEETING']
+                outpasses = Outpass.objects.filter(
+                    student__parent_relationships__parent=user,
+                    status__in=active_statuses
+                ).select_related('student', 'parent').distinct().order_by('-created_at')[:10]
+                
+                from apps.outpasses.serializers import OutpassSerializer
+                response_data['dashboard_data']['active_outpasses'] = OutpassSerializer(outpasses, many=True).data
+                
+            elif user.role in ['HM', 'ACCOUNTANT', 'WARDEN', 'GATE_STAFF']:
+                from apps.outpasses.models import Outpass
+                
+                # Provide counts for staff dashboard
+                pending_count = Outpass.objects.filter(status__in=['PENDING', 'FEE_PENDING']).count()
+                
+                response_data['dashboard_data'] = {
+                    'pending_count': pending_count
+                }
+            
+            elapsed = time.time() - start_time
+            print(f"DEBUG LOGIN: Response prepared in {elapsed:.2f}s")
+            
+            return Response(response_data, status=status.HTTP_200_OK)
         
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 

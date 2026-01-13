@@ -10,17 +10,28 @@ import { theme, SCHOOL_NAME, SPACING } from '../../constants/theme';
 
 export default function ParentDashboard() {
     const router = useRouter();
-    const logout = useAuthStore(state => state.logout);
+    const { logout, dashboardData, clearDashboardCache } = useAuthStore();
     const [children, setChildren] = useState<Student[]>([]);
     const [activeOutpasses, setActiveOutpasses] = useState<Outpass[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
-        fetchDashboardData();
+        // Use cached data if available for instant display
+        if (dashboardData && dashboardData.children) {
+            console.log('Using cached dashboard data');
+            setChildren(dashboardData.children);
+            setActiveOutpasses(dashboardData.active_outpasses || []);
+            setLoading(false);
+
+            // Fetch fresh data in background
+            fetchDashboardData(true);
+        } else {
+            fetchDashboardData();
+        }
     }, []);
 
-    const fetchDashboardData = async () => {
+    const fetchDashboardData = async (isBackgroundRefresh = false) => {
         try {
             const [kids, outpasses] = await Promise.all([
                 parentService.getChildren(),
@@ -28,6 +39,11 @@ export default function ParentDashboard() {
             ]);
             setChildren(kids);
             setActiveOutpasses(outpasses);
+
+            // Clear cache after successful fetch
+            if (isBackgroundRefresh) {
+                clearDashboardCache();
+            }
         } catch (error) {
             console.error("Dashboard fetch error:", error);
         } finally {
