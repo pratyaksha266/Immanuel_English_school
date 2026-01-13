@@ -109,8 +109,10 @@ export default function LoginScreen() {
                             loading={isLoading}
                             disabled={isLoading}
                             style={styles.button}
-                            contentStyle={{ paddingVertical: 8 }}
+                            contentStyle={{ paddingVertical: 12 }}
                             buttonColor={theme.colors.primary}
+                            textColor="#FFFFFF"
+                            labelStyle={{ fontSize: 16, fontWeight: 'bold', letterSpacing: 1 }}
                         >
                             LOGIN
                         </Button>
@@ -204,6 +206,11 @@ const styles = StyleSheet.create({
     button: {
         borderRadius: 10,
         marginTop: SPACING.s,
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
     },
     forgotText: {
         textAlign: 'center',

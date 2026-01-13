@@ -6,10 +6,10 @@ export const theme = {
     ...MD3LightTheme,
     colors: {
         ...MD3LightTheme.colors,
-        primary: '#1A237E', // Deep Indigo
+        primary: '#2196F3', // Bright Blue - much more visible
         onPrimary: '#FFFFFF',
-        primaryContainer: '#C5CAE9',
-        onPrimaryContainer: '#000051',
+        primaryContainer: '#BBDEFB',
+        onPrimaryContainer: '#0D47A1',
         secondary: '#FFB300', // Amber/Gold for accent
         onSecondary: '#000000',
         secondaryContainer: '#FFECB3',

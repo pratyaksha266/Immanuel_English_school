@@ -266,6 +266,9 @@ export default function NewOutpassScreen() {
                 loading={submitting}
                 style={styles.submitBtn}
                 buttonColor={theme.colors.primary}
+                textColor="#FFFFFF"
+                labelStyle={{ fontSize: 16, fontWeight: 'bold', letterSpacing: 0.5 }}
+                contentStyle={{ paddingVertical: 4 }}
             >
                 Submit Request
             </Button>
