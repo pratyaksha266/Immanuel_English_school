@@ -164,19 +164,13 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', 'your_account_sid_here')
-TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', 'your_auth_token_here')
-TWILIO_FROM_NUMBER = os.environ.get('TWILIO_FROM_NUMBER', '+1234567890') 
+# Fast2SMS Configuration (India-focused SMS provider)
+FAST2SMS_API_KEY = os.environ.get('FAST2SMS_API_KEY', 'your_fast2sms_api_key_here')
 
-# Debug: verify if credentials are loaded (don't print full secrets)
-if TWILIO_ACCOUNT_SID == 'your_account_sid_here':
-    print("WARNING: TWILIO_ACCOUNT_SID is still using the placeholder!")
+# Debug: verify if API key is loaded
+if FAST2SMS_API_KEY == 'your_fast2sms_api_key_here':
+    print("WARNING: FAST2SMS_API_KEY is still using the placeholder!")
+    print("Please set FAST2SMS_API_KEY in your environment variables.")
 else:
-    print(f"DEBUG: TWILIO_ACCOUNT_SID loaded (starts with {TWILIO_ACCOUNT_SID[:4]}...)")
-
-if TWILIO_AUTH_TOKEN == 'your_auth_token_here':
-    print("WARNING: TWILIO_AUTH_TOKEN is still using the placeholder!")
-else:
-    print("DEBUG: TWILIO_AUTH_TOKEN loaded.")
+    print(f"DEBUG: FAST2SMS_API_KEY loaded (starts with {FAST2SMS_API_KEY[:4]}...)")
 
